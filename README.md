@@ -38,6 +38,7 @@ THIS CODE IS TO BE RUN! You can run the GOSIAOUTEX.py but this one just converts
 
 
 # OUTPUT OF CODE FOR GOSIA RUN OF 110CD
+NOTE: The run shown here is a random run with no significance to the ongoing analysis.
 The also has the ability to hover over lifetime data points to reveal the lifetime value and is able to point (with a white arrow) towards
 data points where the difference between the experiment and calculated is > 3*Sigma.
 
