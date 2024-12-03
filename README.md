@@ -35,3 +35,15 @@ This code has two functionalities:
 This bash script will run the previous python code and the gls code, doing the conversion of ASCII to gls, and will display the gls level scheme with updated B(E2) values.
 
 THIS CODE IS TO BE RUN! You can run the GOSIAOUTEX.py but this one just converts the ascii file from AGS to GLS so user does not have to.
+
+
+# OUTPUT OF CODE FOR GOSIA RUN OF 110CD
+EXPERIMENTAL VS. CALCULATED PLOTS
+![image](https://github.com/user-attachments/assets/b6131258-271f-4e1a-a469-151432d2468f)
+
+MATRIX ELEMENTS (KNOWN)
+![image](https://github.com/user-attachments/assets/cf2b16fb-2fb9-40e0-8e1c-7a06facc5420)
+
+GLS FILE:
+![image](https://github.com/user-attachments/assets/35232aa8-9169-4bb1-bc6c-a9e348b82b98)
+
