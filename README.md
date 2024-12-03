@@ -23,9 +23,10 @@ This code has two functionalities:
 ### Things to Note when running the Code:
 
   1. User must create a gls file level scheme with RADWARE, in which the Level energies coincide directly with GOSIA level energies.
-     The user must also define the transitions in the level scheme they want updated by the code with the calculated B(E2) values.
+     The user must also define the transitions in the level scheme they want updated by the code with the calculated B(E2) values. In the end, once the user
+     has defined the level scheme, will have to use gls_conv to convert GLS to ASCII.
      
-  2. User must alter some lines in the code:
+  3. User must alter some lines in the code:
        1. **line 171: file path and name of .out file**
        2. **line 301: File path of .ags file.**
     
