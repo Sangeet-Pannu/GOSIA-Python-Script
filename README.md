@@ -38,10 +38,11 @@ THIS CODE IS TO BE RUN! You can run the GOSIAOUTEX.py but this one just converts
 
 
 # OUTPUT OF CODE FOR GOSIA RUN OF 110CD
-EXPERIMENTAL VS. CALCULATED PLOTS
+EXPERIMENTAL VS. CALCULATED PLOTS:
 ![image](https://github.com/user-attachments/assets/b6131258-271f-4e1a-a469-151432d2468f)
 
-MATRIX ELEMENTS (KNOWN)
+MATRIX ELEMENTS (KNOWN):
+
 ![image](https://github.com/user-attachments/assets/cf2b16fb-2fb9-40e0-8e1c-7a06facc5420)
 
 GLS FILE:
