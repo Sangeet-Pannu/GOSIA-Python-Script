@@ -1,10 +1,20 @@
 import pandas as pd
+import os
 import math 
 from pathlib import Path  
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
+import tkinter as tk
+import threading
+from tkinter import messagebox
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import mplcursors  # Importing mplcursors for hover functionality 
+import colorsys
+
+import warnings
+warnings.filterwarnings("ignore")
+
 #----------------------------------|
 # Created by Sangeet-Pal Pannu
 # Affiliation: University of Guelph
@@ -27,6 +37,26 @@ import mplcursors  # Importing mplcursors for hover functionality
 A_Nucleus = 110 #Cd 110 Nucleus
 #---------------------------|
 
+Save_status = False
+
+reDisplay = False
+
+#---------------------------|
+
+Minimization_Run_Num = 40
+
+#---------------------------|
+
+#---------------------------|
+
+GSBand = [657,1542,2479,3275]
+GamBand = [1475,2220,3064]
+IntrBand = [1783,2250,2876,3791]
+K3Band = [2355]
+
+
+
+#---------------------------|
 dt = datetime.datetime.today()
 
 def ME_2_Wu(ME_Val,L2,SpinU,SpinD):
@@ -40,19 +70,26 @@ def ME_1_Wu(ME_Val,L2,SpinU,SpinD):
     return B_E2/ConV_WU
 
 def ME_Q_0(ME_Val,L2,K):
-    if L2 == 2:
-        CleGoM = 0.534522484
-    if L2 == 4:
-        CleGoM = 0.713506068
-    if L2 == 6:
-        CleGoM = 0.792825
-    if L2 == 3:
-        CleGoM = 0.645497224
-    if L2 == 5:
-        CleGoM = 0.759555
+    if(K==0):
+        if L2 == 2:
+            CleGoM = -0.534522484
+        if L2 == 4:
+            CleGoM = -0.509
+        if L2 == 6:
+            CleGoM = -0.504
+        if L2 == 8:
+            CleGoM = -0.502
 
-    Qs = math.sqrt(16*math.pi/5)*CleGoM/(2*L2+1)*ME_Val
-    Q0 = ((L2+1)*(2*L2+3)/(3*K**2-L2*(L2+1)))*Qs
+    if(K==2):
+        if L2 == 2:
+            CleGoM = 0.534522484
+        if L2 == 4:
+            CleGoM = -0.203
+        if L2 == 6:
+            CleGoM = -0.360
+
+    Qs = math.sqrt(16*math.pi/5)*(CleGoM/(math.sqrt((2*L2+1))))*ME_Val
+    Q0 = Qs*(((L2+1)*(2*L2+3))/(3*(K**2)-L2*(L2+1)))
     return Q0
 
 def extract_section(file_lines, start_marker, end_marker):
@@ -92,8 +129,32 @@ def extract_section_P2(file_lines, start_marker, end_marker): # Definition comes
         return file_lines[pos_Start[-1] : pos_End[-1]] # records the section of lines we are interested in.
     return []
 
-def modify_gamma(lines, gamma_energy, new_energy, new_intensity):
+def cyan_shades(num_shades=10):
+    """
+    Generate 'num_shades' distinct shades of cyan (RGB tuples),
+    with the last entry being a shade of green.
+    Hue ~0.5 is cyan, ~0.33 is green in HSV.
+    """
+    hue_cyan = 0.5     # Cyan
+    hue_green = 0.33   # Green
+    saturation = 1     # Full saturation
+    color_list = []
+    
+    for i in range(num_shades):
+        param = i / max(num_shades - 1, 1)
+        value = 0.3 + 0.7 * param  # Brightness from dark to bright
 
+        if i == num_shades - 1:
+            # Last color: green
+            r, g, b = colorsys.hsv_to_rgb(hue_green, saturation, 1)
+        else:
+            r, g, b = colorsys.hsv_to_rgb(hue_cyan, saturation, value)
+
+        color_list.append((r, g, b))
+
+    return color_list
+
+def modify_gamma(lines, gamma_energy, new_energy, new_intensity):
     # Find gamma lines and modify specified gamma
     num = 0
     modified = False
@@ -131,7 +192,7 @@ def modify_gamma(lines, gamma_energy, new_energy, new_intensity):
                         lines[i] += '\n'                 
                         modified = True
                         break
-    
+
     if not modified:
         raise ValueError(f"a gamma transition energy was not found. Check to See if the gls file energies match the GOSIA input file energies")
 
@@ -164,6 +225,178 @@ def add_text_gls(Q_vals): #Modifies number of Text boxes in gls file, which depe
         fin_lines.append(line)
 
     return fin_lines
+
+
+def save(MATRIX_Data,Lifetime_Data,MixingRatio_Data,Yields_Data,BR_Data,run_num = Minimization_Run_Num):
+    counter = 0
+    filename = './CSV_OUTPUT/Matrix_Data_MINIRUN_{}_{}.csv'
+
+    while os.path.isfile(filename.format(run_num,counter)):
+        counter = counter + 1
+    filepath = Path('./CSV_OUTPUT/Matrix_Data_MINIRUN_{}_{}.csv'.format(run_num,counter))  
+    filepath.parent.mkdir(parents=True, exist_ok=True) #Checks to see if the folder already exists
+
+    MATRIX_Data.to_csv('./CSV_OUTPUT/Matrix_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t',na_rep=' ',index=False,header=False)
+    Lifetime_Data.to_csv('./CSV_OUTPUT/Lifetime_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t',na_rep=' ',index=False,header=False)
+    MixingRatio_Data.to_csv('./CSV_OUTPUT/MixingRatio_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t',na_rep=' ',index=False,header=False)
+    Yields_Data.to_csv('./CSV_OUTPUT/Yields_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t',na_rep=' ',index=False,header=False)
+    BR_Data.to_csv('./CSV_OUTPUT/BR_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t',na_rep=' ',index=False,header=False)
+
+    return counter
+
+def display_prev(value,run_num = Minimization_Run_Num):
+    """Function to display the entered number when the Display button is clicked."""
+    try:
+        counter = value
+        filename = './CSV_OUTPUT/Matrix_Data_MINIRUN_{}_{}.csv'.format(run_num,counter)
+
+        
+        MATRIX_Data=pd.read_csv('./CSV_OUTPUT/Matrix_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t')
+        Lifetime_Data=pd.read_csv('./CSV_OUTPUT/Lifetime_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t')
+        MixingRatio_Data=pd.read_csv('./CSV_OUTPUT/MixingRatio_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t')
+        Yields_Data=pd.read_csv('./CSV_OUTPUT/Yields_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t')
+        BR_Data=pd.read_csv('./CSV_OUTPUT/BR_Data_MINIRUN_{}_{}.csv'.format(run_num,counter),sep='\t')
+        return MATRIX_Data,Lifetime_Data,MixingRatio_Data,Yields_Data,BR_Data
+    except ValueError:
+        messagebox.showerror("Error", "Where are the saved files? or Are you sure {} is a good number?".format(value))
+
+
+def Lifetime_Plot(ax,cleaned_data,run_label,color_calc):
+    Index = []
+    LT_Cal = []
+
+    for index, row in cleaned_data.iterrows():
+        Index.append(int(row["LEVEL"]))
+        LT_Cal.append(float(row["LIFETIME(PSEC)"]))
+
+    scatter_plot = ax.scatter(
+        Index, 
+        LT_Cal, 
+        label=f"Calculated ({run_label})", 
+        color=color_calc, 
+        marker="o", 
+        s=30
+    )
+    
+    return scatter_plot
+
+def BR_PLOT(ax,cleaned_data,run_label,color_calc):
+    Index = []
+    LT_Cal = []
+
+    for index, row in cleaned_data.iterrows():
+        Index.append(str(int(row["NS1"]))+'-->'+str(int(row["NF1"])))
+        LT_Cal.append(float(row["(EXP-CAL)/ERROR"]))
+
+    scatter_plot = ax.scatter(
+        Index, 
+        LT_Cal, 
+        label=f"Calculated ({run_label})", 
+        color=color_calc, 
+        marker="o", 
+        s=30
+    )
+    
+    return scatter_plot
+
+def MixingRatio_Plot(ax,cleaned_data,run_label,color_calc):
+    MIX_Label= []
+    MIX_Cal = []
+    num = 0
+
+    for index, row in cleaned_data.iterrows():
+        MIX_Label.append(str(row["TRANSITION"])+str(row["EXP.DELTA"]))
+        MIX_Cal.append(float(row["SIGMA"]))
+
+    scatter_plot = ax.scatter(
+        MIX_Label, 
+        MIX_Cal, 
+        label=f"Calculated ({run_label})", 
+        color=color_calc, 
+        marker="o", 
+        s=30
+    )
+
+    return scatter_plot
+
+def Yield_Plot(ax,cleaned_data,run_label,color_calc):
+
+    GY_Label= []
+    GY_Cal = []
+    highlight_indices = []
+    num = 0
+
+
+    for index, row in cleaned_data.iterrows():
+        try:
+            # Try to read ENERGY(MEV) and DIFF. normally
+            try:
+                energy = float(row["ENERGY(MEV)"]) * 1000
+            except (ValueError, TypeError):
+                raw_energy = str(row.iloc[8]).strip()
+                if "+" in raw_energy:
+                    raw_energy = raw_energy.split("+")[0]
+                energy = float(raw_energy) * 1000
+
+            try:
+                diff = float(row["DIFF."])
+            except (ValueError, TypeError):
+                diff = float(row.iloc[12])
+
+            GY_Label.append((int(energy)))
+            GY_Cal.append(diff)
+
+        except Exception as e:
+            #print(f"Skipped row due to error: {e}")
+            continue
+
+    paired_lists = list(zip(GY_Label, GY_Cal))
+
+    # Sort the pairs by the first element (from list1)
+    sorted_pairs = sorted(paired_lists, key=lambda pair: pair[0])
+
+    # Unzip the sorted pairs back into two lists
+    sorted_list1, sorted_list2 = zip(*sorted_pairs)
+
+    # Convert the tuples back to lists (if needed)
+    sorted_list1 = list(sorted_list1)
+    sorted_list2 = list(sorted_list2)
+    sorted_list1 = list(map(str, sorted_list1))
+    sorted_list2 = [round(num, 2) for num in sorted_list2]
+
+    scatter_plot = ax.bar(
+        sorted_list1, 
+        sorted_list2,
+        width=0.6,
+        alpha=0.7,
+
+        color=color_calc,
+        label=f"Calculated ({run_label})",  
+    )
+
+    return scatter_plot
+
+def ME_Plot(ax,cleaned_data,run_label,color_calc):
+
+    ME_Label= []
+    ME_Cal = []
+    highlight_indices = []
+    num = 0
+    for index, row in cleaned_data.iterrows():
+        ME_Label.append(str(row["NI"]) +"-->"+ str(row["NF"]))
+        ME_Cal.append(float(row["ME"]))
+
+    scatter_plot = ax.scatter(
+        ME_Label, 
+        ME_Cal, 
+        label=f"Calculated ({run_label})", 
+        color=color_calc, 
+        marker="o", 
+        s=30
+    )
+
+    return scatter_plot
+
 #-----------------------------------------------------------------------------------------------|
 #--------Function Definitions Above --------||
 
@@ -173,6 +406,12 @@ i=0
 with open(file_path, 'r') as file:
     file_content = file.readlines()
 
+RED = "\033[91m"
+RESET = "\033[0m"
+
+print(RED + "\n" + "#" * 60)
+print(f"                 MINIMIZATION RUN NUMBER: {Minimization_Run_Num}")
+print("#" * 60 + "\n" + RESET)
 
 
 #----------------------------[Secton: Grab sections of interest from GOSIA output]--------------------------||
@@ -233,8 +472,9 @@ MixingRatio_Data=pd.DataFrame.from_dict(cleaned_data["E2/M1 MIXING RATIOS"])
 
 Lifetime_Data=pd.DataFrame.from_dict(cleaned_data["Lifetimes"])
 
-MATRIX_Data=pd.DataFrame.from_dict(cleaned_data["MATRIX ELEMENTS"])
+MATRIX_Data=pd.DataFrame.from_dict(cleaned_data["ME_Cal"])
 
+Cal_counter=save(MATRIX_Data,Lifetime_Data,MixingRatio_Data,Yields_Data,BR_Data)
 #--------[ Section Data for Each recorded section]--------------------------||
 
 
@@ -256,40 +496,136 @@ for Col in cleaned_data["MATRIX ELEMENTS"]:
     if(Status): 
         if len(Col) > 1 and len(Col) < 9:                 # makes sure we are not trying to grab lists that dont have more than 2 columns or have all string entries.
             Lv1 = float(Level_index[int(Col[2])])           # INITIAL LEVEL ENERGY FROM WHICH TRANSITION ORIGINATES
-            Spin_up = float(Spin_index[int(Col[2])])        # INITIAL LEVEL SPIN
             Lv2 = float(Level_index[int(Col[1])])           # FINAL LEVEL ENERGY FROM WHICH TRANSITION GOES TO
-            Spin_down = float(Spin_index[int(Col[1])])      # FINAL LEVEL SPIN
+
+            if(Lv2 > Lv1):
+                Spin_up = float(Spin_index[int(Col[1])])        # INITIAL LEVEL SPIN
+                Spin_down = float(Spin_index[int(Col[2])])      # FINAL LEVEL SPIN
+            else:
+                Spin_up = float(Spin_index[int(Col[2])])        # INITIAL LEVEL SPIN
+                Spin_down = float(Spin_index[int(Col[1])])      # FINAL LEVEL SPIN
+            
             Energy.append(abs(Lv1-Lv2))
+            
                                 # We have the Energy of the transition
             if(abs(Lv1-Lv2)==0):
-                Q_vals.append((Lv1,ME_Q_0(float(Col[3]),Spin_up,0),Spin_up))    # Q_value
-
+                if(Lv1*1000 == 1475 or Lv1*1000 == 2220 or Lv1*1000 == 3064): #This is to catch the K=2 band Terms.
+                    Q_vals.append((Lv1,ME_Q_0(float(Col[3]),int(Spin_up),2),Spin_up,float(Col[3])))    # Q_value
+                else:
+                    Q_vals.append((Lv1,ME_Q_0(float(Col[3]),int(Spin_up),0),Spin_up,float(Col[3])))
             M_Ele_E2.append(ME_2_Wu(float(Col[3]),2.0,Spin_up,Spin_down))
             M_Ele_M1.append(0)
     if(Status==False):
         if len(Col) > 1 and len(Col) < 9:                    # makes sure we are not trying to grab lists that dont have more than 2 columns or have all string entries.
             Lv1 = float(Level_index[int(Col[2])])            # INITIAL LEVEL ENERGY FROM WHICH TRANSITION ORIGINATES
-            Spin_up = float(Spin_index[int(Col[1])])         # INITIAL LEVEL SPIN
-            Lv2 = float(Level_index[int(Col[1])])            # FINAL LEVEL ENERGY FROM WHICH TRANSITION GOES TO
-            Spin_down = float(Spin_index[int(Col[2])])       # FINAL LEVEL SPIN
-            indexM = Energy.index(abs(Lv1-Lv2))
-            M_Ele_M1[indexM]=ME_1_Wu(float(Col[3]),1.0,Spin_up,Spin_down) # FIX THIS ISSUE!!! The index filled wont match the index of Energy for this M1 ME value!!!
+            Lv2 = float(Level_index[int(Col[1])])            # FINAL LEVEL ENERGY FROM WHICH TRANSITION GOES TO            
+            if(Lv2 > Lv1):
+                Spin_up = float(Spin_index[int(Col[1])])        # INITIAL LEVEL SPIN
+                Spin_down = float(Spin_index[int(Col[2])])      # FINAL LEVEL SPIN
+            else:
+                Spin_up = float(Spin_index[int(Col[2])])        # INITIAL LEVEL SPIN
+                Spin_down = float(Spin_index[int(Col[1])])      # FINAL LEVEL SPIN
+
+            
+            #indexM = Energy.index(round(abs(Lv1-Lv2),3))
+            #M_Ele_M1[indexM]=ME_1_Wu(float(Col[3]),1.0,Spin_up,Spin_down)
+
+
 
 # Prints the Transition Matrix Element in B(E2) Down [W.u]
+
+CYAN  = "\033[96m"
+GREEN = "\033[92m"
+BOLD  = "\033[1m"
+
+
+# ─────────────────────────────────────────────────────────
+# 1) GOSIA OUTPUT INFORMATION
+# ─────────────────────────────────────────────────────────
+print(
+    RED + "#" * 60 + "\n" + 
+    BOLD + "                 GOSIA OUTPUT INFORMATION" + RESET + RED + "\n" +
+    "#" * 60 + RESET + "\n"
+)
+
+# ─────────────────────────────────────────────────────────
+# 2) B(M1) W.u
+# ─────────────────────────────────────────────────────────
+print(
+    CYAN + "|-------------- B(M1) W.u --------------|\n" + RESET
+)
+
+# Header for the B(M1) table
+print(f"{'Energy (keV)':>12s}   {'B(M1) (W.u)':>12s}")
+print("-" * 30)
+
+# Print only if M1 > 0
 for i in range(len(M_Ele_E2)):
-    print("The Transition Energy: ",end="")
-    print("{0:0.2f}".format(Energy[i]*1000),end="")
-    print(" and The ME in B(E2) W.U: ",end="")
-    print("{0:0.4f}".format(M_Ele_E2[i]))
-    if(M_Ele_M1[i]>0):
-        print(" and The ME in B(M1) W.U: ",end="")
-        print("{0:0.4f}".format(M_Ele_M1[i]))
+    if M_Ele_M1[i] > 0:
+        # Example:  800.00        0.3000
+        print(f"{Energy[i] * 1000:12.2f}   {M_Ele_M1[i]:12.4f}")
 
 print("\n\n")
-print("|-------------- Intrinsic Quadrupole Moments --------------|")
-for x,y,z in Q_vals: 
-    print("| Level Energy: {} | Spin = {} | Q_0 = {}".format(x*1000,z,y))
+
+# ─────────────────────────────────────────────────────────
+# 3) Intrinsic Quadrupole Moments           THE ORDERING HAS BEEN HARD CODED TO PRESENT VALUES IN BAND ORDER
+# ─────────────────────────────────────────────────────────
+print(
+    CYAN + "|---------- Intrinsic Quadrupole Moments ----------|\n" + RESET
+)
+
+# Print a table header for Q-values
+print(f"{'Energy (keV)':>12s} | {'Spin':>5s} | {'ME':>5s} | {'Q0':>5s}")
+print("-" * 37)
+
+print("Ground State Band")
+for level_energy, q0, spin, me in Q_vals:
+    # Right-align numeric fields in a fixed width for neat columns
+    if(level_energy*1000 in GSBand):
+        print(
+            f"{(level_energy * 1000):12.2f} | "
+            f"{spin:>5.2f} | "
+            f"{me:>5.2f} | "
+            f"{q0:>5.2f}"
+        )
+print("Gamma Band")
+for level_energy, q0, spin, me in Q_vals:
+    if(level_energy*1000 in GamBand):
+        print(
+            f"{(level_energy * 1000):12.2f} | "
+            f"{spin:>5.2f} | "
+            f"{me:>5.2f} | "
+            f"{q0:>5.2f}"
+        )
+print("Intruder Band")
+for level_energy, q0, spin, me in Q_vals:
+    if(level_energy*1000 in IntrBand):
+        print(
+            f"{(level_energy * 1000):12.2f} | "
+            f"{spin:>5.2f} | "
+            f"{me:>5.2f} | "
+            f"{q0:>5.2f}"
+        )
+print("K = 0_3+")
+for level_energy, q0, spin, me in Q_vals:
+    if(level_energy*1000 in K3Band):
+        print(
+            f"{(level_energy * 1000):12.2f} | "
+            f"{spin:>5.2f} | "
+            f"{me:>5.2f} | "
+            f"{q0:>5.2f}")
+print("Other Levels")
+for level_energy, q0, spin, me in Q_vals:
+    if(level_energy*1000 not in GSBand and level_energy*1000 not in GamBand and level_energy*1000 not in IntrBand and level_energy*1000 not in K3Band):
+        print(
+            f"{(level_energy * 1000):12.2f} | "
+            f"{spin:>5.2f} | "
+            f"{me:>5.2f} | "
+            f"{q0:>5.2f}")
+        
+
 print("\n\n")
+
 #--------[ Section: LOGIC for matrix element to transition determiniation]--------------------------||
 
 
@@ -325,83 +661,100 @@ file.close()
 
 #--------[ Section: LOGIC for writing B(E2) values to GLS file (ASCII)]--------------------------||
 
-#--------[ Section: Data writing/storage to CSV file]--------------------------||
+prev_Data = []
 
-#filepath = Path('./CSV_OUTPUT/MATRIX_Data.csv')  
-#filepath.parent.mkdir(parents=True, exist_ok=True) #Checks to see if the folder already exists
-#MATRIX_Data.to_csv('./CSV_OUTPUT/MATRIX_Data.csv',index=False,header=False,mode='a')
+# MATRIX_Data,Lifetime_Data,MixingRatio_Data,Yields_Data,BR_Data return values from display_prev.
 
-#--------[ Section: Data writing/storage to CSV file]--------------------------||
-
-
-
-
+for t in range(Cal_counter+1):
+    prev_Data.append(display_prev(t,run_num = Minimization_Run_Num))
 #--------[ Section: Plotting Diagrams/Graphs ]--------------------------||
 
 plt.style.use('dark_background')
-plt.figure(figsize=(80, 60))
-plt.subplot(2, 2, 1)
+fig, axes = plt.subplots(2, 2, figsize=(20, 15))
+
+fig_ME, ax_ME = plt.subplots(figsize=(10, 6))
+
+ax_LT = axes[0, 0]  # Lifetimes
+ax_BR = axes[0, 1]  # Branching Ratios
+ax_GY = axes[1, 0]  # Yields
+ax_MX = axes[1, 1]  # Mixing Ratios
+
+shades = cyan_shades(Cal_counter+1)  # e.g., 5 distinct cyan shades
 #----------[Lifetime Graphs]--------|
 Index = []
 LT_Exp = []
 LT_Err = []
-LT_Cal = []
+
 for Col in cleaned_data["Lifetimes"]:
     if len(Col) <= 2:
-        Index.append(float(Level_index[int(Col[0])])*1000)
-        LT_Cal.append(float(Col[1]))
+        Index.append(int(Col[0]))
         LT_Exp.append(np.nan)
         LT_Err.append(0)
     if len(Col) > 4:
-        Index.append(float(Level_index[int(Col[0])])*1000)
-        LT_Cal.append(float(Col[1]))
+        Index.append(int(Col[0]))
         LT_Exp.append(float(Col[2]))
         LT_Err.append(abs(float(Col[3])))
 
+errorbar_plot = ax_LT.errorbar(
+        Index, 
+        LT_Exp, 
+        yerr=LT_Err, 
+        label=f"Experimental", 
+        color="red", 
+        fmt='o',
+        ecolor='gray',
+        capsize=3,
+        elinewidth=2
 
-errorbar_plot=plt.errorbar(Index, LT_Exp,yerr = LT_Err,label= "Experimental", color='red', fmt='o',  # Data points as circles
-    ecolor='gray',  # Color of error bars
-    capsize=3,  # Size of error bar caps
-    elinewidth=2  # Line width of error bars
-    );
-scatter_plot=plt.scatter(Index, LT_Cal, label= "Calulated", color= "cyan",marker= "o", s=30)
-
-# x-axis label
-plt.xlabel('Level Energy (keV)')
-plt.yscale("log")   
-# frequency label
-plt.ylabel('Lifetimes (Pico-Seconds)')
-# plot title
-plt.title('GOSIA: Lifetimes (CALCULATED VS. EXPERIMENTAL)')
-# showing legend
-plt.legend()
-
-cursor = mplcursors.cursor([errorbar_plot, scatter_plot], hover=True)
+        )
+scatter_plot_Ex = ax_LT.scatter(
+        Index, 
+        LT_Exp, 
+        color="red", 
+        marker='o'
+        )
+cursor = mplcursors.cursor([scatter_plot_Ex], hover=mplcursors.HoverMode.Transient,multiple=False,highlight=True)
 
 # METHOD TO ALLOW HOVERING ANNOTATION.... 
+
+scatter_plot = []
+
+#Calculated Run
+for x in range(Cal_counter+1):
+    scatter_plot.append(Lifetime_Plot(ax_LT,
+    prev_Data[x][1],
+    run_label=f"Mini.# :{x}",
+    color_calc=shades[x],
+    ))
+    cursor = mplcursors.cursor([scatter_plot[x]], hover=mplcursors.HoverMode.Transient,multiple=False,highlight=True)
 
 @cursor.connect("add")
 def on_add(sel):
     # Identify whether the point is experimental or calculated
-    if sel.artist == errorbar_plot:
+    if sel.artist == scatter_plot_Ex:
         sel.annotation.set_text(
-            f"Exp:\nEnergy={sel.target[0]:.1f} keV\nLifetime={sel.target[1]:.4f} ps"
+            f"Exp:\nLEVEL={sel.target[0]:.1f} keV\nLifetime={sel.target[1]:.4f} ps"
         )
     elif sel.artist == scatter_plot:
         sel.annotation.set_text(
-            f"Calc:\nEnergy={sel.target[0]:.1f} keV\nLifetime={sel.target[1]:.4f} ps"
+            f"Calc:\nLEVEL={sel.target[0]:.1f} keV\nLifetime={sel.target[1]:.4f} ps"
         )
     sel.annotation.arrow_patch.set_edgecolor("white")
     sel.annotation.arrow_patch.set_facecolor("white")
 
-#---[Branching ratio Graphs]--------|
-plt.subplot(2, 2, 2)
+ax_LT.set_xlabel('Level Energy (keV)')
+ax_LT.set_ylabel('Lifetimes (Pico-Seconds)')
+ax_LT.set_yscale("log")
+ax_LT.set_title('GOSIA: Lifetimes (CALCULATED VS. EXPERIMENTAL)')
+ax_LT.legend()
 
+#---[Branching ratio Graphs]--------|
 BR_Label= []
 BR_Exp = []
 BR_Err = []
 BR_Cal = []
 num = 0
+
 for Col in cleaned_data["BR"]:
     num = num + 1
     if num > 1:
@@ -410,81 +763,106 @@ for Col in cleaned_data["BR"]:
         BR_Exp.append(float(Col[4]))
         BR_Err.append(abs(float(Col[5])))
 
-plt.errorbar(BR_Label, BR_Exp,yerr = BR_Err,label= "Experimental", color='red', fmt='o',  # Data points as circles
+
+for x in range(Cal_counter+1):
+    BR_PLOT(ax_BR,
+    prev_Data[x][4],
+    run_label=f"Mini.# :{x}",
+    color_calc=shades[x],
+    )
+
+ax_BR.errorbar(BR_Label, BR_Exp,yerr = BR_Err,label= "Experimental", color='red', fmt='o',  # Data points as circles
     ecolor='gray',  # Color of error bars
     capsize=3,  # Size of error bar caps
     elinewidth=2  # Line width of error bars
     );
 
-plt.scatter(BR_Label, BR_Cal, label= "Calulated", color= "cyan",marker= "o", s=30)
-# x-axis label
-plt.xlabel('Li-->Lf/(Norm)')
-#plt.yscale("log")   
-# frequency label
-plt.ylabel('Branching Ratio')
-# plot title
-plt.title('GOSIA: Branching Ratios (CALCULATED VS. EXPERIMENTAL)')
-# showing legend
-plt.legend()
 
-#plt.show()
+ax_BR.set_xticklabels(ax_BR.get_xticklabels(), rotation=40, ha="right")
+ax_BR.set_ylabel('Branching Ratio')
+# plot title
+ax_BR.set_title('GOSIA: Branching Ratios (CALCULATED VS. EXPERIMENTAL)')
+# showing legend
+ax_BR.legend()
+
 
 #------------[Yields Graphs]--------|
-plt.subplot(2, 2, 3)
 GY_Label= []
 GY_Exp = []
 GY_Err = []
-GY_Cal = []
+GY_PErr = []
 highlight_indices = []
 num = 0
-for Col in cleaned_data["Yields"]:
-    num = num + 1
-    if num > 1 and len(Col) > 4:
-        GY_Label.append(float(Col[4])*1000)
-        if(len(Col) == 6): 
-            GY_Cal.append(float(Col[5]))
-            GY_Exp.append(np.nan)
-            GY_Err.append(np.nan)
-        if(len(Col) >= 9): 
-            GY_Cal.append(float(Col[5]))
-            GY_Exp.append(float(Col[6]))
-            error_cal = abs(float(Col[5])-float(Col[6]))/abs(float(Col[8]))
-            GY_Err.append(error_cal)      
-            if(abs(float(Col[8])) >= 3.0):
-                highlight_indices.append(num-2)
-itr = 0
-for idx in highlight_indices:
-    itr = itr + 1
-    plt.annotate(
-        text=f"{GY_Label[idx]}",  # Label with the x-value
-        xy=(GY_Label[idx], GY_Exp[idx]),  # Point at the data
-        xytext=(GY_Label[idx],min(GY_Cal)*itr**10),  # Position of the label (adjust as needed)
-        arrowprops=dict(arrowstyle="->", color="white"),
-        ha='center'  # Center-align the text
+
+for row in cleaned_data["Yields"]:
+        try:
+            # Try to read ENERGY(MEV) and DIFF. normally
+            try:
+                energy = float(row[4]) * 1000
+            except (ValueError, TypeError):
+                raw_energy = str(row[8]).strip()
+                if "+" in raw_energy:
+                    raw_energy = raw_energy.split("+")[0]
+                energy = float(raw_energy) * 1000
+
+            # --- DIFF Handling ---
+            diff_val = str(row[8]).strip()
+            if diff_val == "****":
+                y = 20
+            else:
+                try:
+                    y = float(diff_val)
+                except ValueError:
+                    y = float(row[12])  # fallback if still malformed
+
+            GY_Label.append((int(energy)))
+            GY_PErr.append(y)
+
+        except Exception as e:
+            #print(f"Skipped row due to error: {e}")
+            continue
+
+# Zip the lists together
+paired_lists = list(zip(GY_Label, GY_PErr))
+
+# Sort the pairs by the first element (from list1)
+sorted_pairs = sorted(paired_lists, key=lambda pair: pair[0])
+
+# Unzip the sorted pairs back into two lists
+sorted_list1, sorted_list2 = zip(*sorted_pairs)
+
+# Convert the tuples back to lists (if needed)
+sorted_list1 = list(sorted_list1)
+sorted_list2 = list(sorted_list2)
+sorted_list1 = list(map(str, sorted_list1))
+sorted_list2 = [round(num, 2) for num in sorted_list2]
+
+for x in range(Cal_counter):
+    Yield_Plot(ax_GY,
+    prev_Data[x][3],
+    run_label=f"Mini.# :{x}",
+    color_calc=shades[x],
     )
 
-plt.errorbar(GY_Label, GY_Exp,yerr = GY_Err,label= "Experimental", color='red', fmt='o',  # Data points as circles
-    ecolor='gray',  # Color of error bars
-    capsize=3,  # Size of error bar caps
-    elinewidth=2  # Line width of error bars
-    );
+ax_GY.bar(sorted_list1, sorted_list2,width=0.6, edgecolor='red',facecolor='none',alpha=1.0,hatch='////',label= "*Recent Calc*");
+ax_GY.set_xticklabels(ax_GY.get_xticklabels(), rotation=40, ha="right")
+y_min = min(sorted_list2) - 2  # Adjust margin as needed
+y_max = max(sorted_list2) + 2
 
-plt.scatter(GY_Label, GY_Cal, label= "Calulated", color= "cyan",marker= "o", s=30)
+
+ax_GY.set_ylim(y_min, y_max)
 # x-axis label
-plt.xlabel('Energy (keV)')
-plt.yscale("log")   
+ax_GY.set_xlabel('Energy (keV)')
+#ax_GY.set_yscale("log")   
 # frequency label
-plt.ylabel('(Gamma Yields)')
+ax_GY.set_ylabel('sigma')
 # plot title
-plt.title('GOSIA: Gamma Yields (CALCULATED VS. EXPERIMENTAL)')
+#ax_GY.set_title('% Di',x=-0.2,y=-0.2)
 # showing legend
-plt.legend()
+#ax_GY.legend()
 
 
 #------[Mixing Ratio Graphs]--------|
-
-plt.subplot(2, 2, 4)
-
 MIX_Label= []
 MIX_Exp = []
 MIX_Err = []
@@ -493,32 +871,40 @@ num = 0
 for Col in cleaned_data["E2/M1 MIXING RATIOS"]:
     num = num + 1
     if num > 1:
-        MIX_Label.append(Col[0]+Col[1])
+        MIX_Label.append(str(Col[0])+str(Col[1]))
         MIX_Cal.append(float(Col[3]))
         MIX_Exp.append(float(Col[2]))
-        error_cal = abs(float(Col[3])-float(Col[2]))/abs(float(Col[4]))
+        if(abs(float(Col[4])) != 0):
+            error_cal = abs(float(Col[3])-float(Col[2]))/abs(float(Col[4]))
+
+        else:
+            error_cal = 0
         MIX_Err.append(error_cal)
 
-plt.errorbar(MIX_Label, MIX_Exp,label= "Experimental",yerr = MIX_Err, color='red', fmt='o',  # Data points as circles
+ax_MX.errorbar(MIX_Label, MIX_Exp,label= "Experimental",yerr = MIX_Err, color='red', fmt='o',  # Data points as circles
     ecolor='gray',  # Color of error bars
     capsize=3,  # Size of error bar caps
     elinewidth=2  # Line width of error bars
-    );
-plt.scatter(MIX_Label, MIX_Cal, label= "Calulated", color= "cyan",marker= "o", s=30)
+    )
+
+for x in range(Cal_counter+1):
+    MixingRatio_Plot(ax_MX,
+    prev_Data[x][2],
+    run_label=f"Mini.# :{x}",
+    color_calc=shades[x],
+    )
+
 # x-axis label
-plt.xlabel('Li-->Lf')
+ax_MX.set_xlabel('Li-->Lf')
 #plt.yscale("log")   
 # frequency label
-plt.ylabel('(E2/M1) Mixing Ratio')
+ax_MX.set_ylabel('(E2/M1) Mixing Ratio')
 # plot title
-plt.title('GOSIA: E2/M1 Mixing Ratios (CALCULATED VS. EXPERIMENTAL)')
+ax_MX.set_title('GOSIA: E2/M1 Mixing Ratios (CALCULATED VS. EXPERIMENTAL)',y=-0.2)
 # showing legend
-plt.legend()
-
+ax_MX.legend()
 
 #---------[Matrix Element Comp]
-plt.figure()
-
 ME_Label= []
 ME_Exp = []
 ME_Err = []
@@ -528,17 +914,20 @@ num = 0
 for Col in cleaned_data["ME_Cal"]:
     num = num + 1
     if num > 1:
-        ME_Label.append(Col[0] +"-"+ Col[1])
+        ME_Label.append(Col[0] +"-->"+ Col[1])
         ME_Cal.append(float(Col[3]))
         ME_Exp.append(float(Col[2]))
-        ME_Err.append(abs(float(Col[3])-float(Col[2]))/abs(float(Col[4])))
+        if(abs(float(Col[4])) != 0):
+            ME_Err.append(abs(float(Col[3])-float(Col[2]))/abs(float(Col[4])))
+        else:
+            ME_Err.append(0)
          
         if(abs(float(Col[4])) >= 3.0):
             highlight_indices.append(num-2)
 itr = 0
 for idx in highlight_indices:
     itr = itr + 1
-    plt.annotate(
+    ax_ME.annotate(
         text=f"{ME_Label[idx]}",  # Label with the x-value
         xy=(ME_Label[idx], ME_Cal[idx]),  # Point at the data
         xytext=(ME_Label[idx],ME_Cal[idx]-0.5),  # Position of the label (adjust as needed)
@@ -546,21 +935,36 @@ for idx in highlight_indices:
         ha='center'  # Center-align the text
     )
 
-plt.errorbar(ME_Label, ME_Exp,label= "Experimental",yerr = ME_Err, color='red', fmt='o',  # Data points as circles
+ax_ME.errorbar(ME_Label, ME_Exp,label= "Experimental",yerr = ME_Err, color='red', fmt='o',  # Data points as circles
     ecolor='gray',  # Color of error bars
-    capsize=3,  # Size of error bar caps
+    capsize=3,  # Size of error bar caps 
     elinewidth=2  # Line width of error bars
     );
 
-plt.scatter(ME_Label, ME_Cal, label= "Calulated", color= "cyan",marker= "o", s=30)
+
+for x in range(Cal_counter+1):
+    ME_Plot(ax_ME,
+    prev_Data[x][0],
+    run_label=f"Mini.# :{x}",
+    color_calc=shades[x],
+    )
+
 # x-axis label
-plt.xlabel('Energy (keV)')   
+ax_ME.set_xlabel('Energy (keV)')   
 # frequency label
-plt.ylabel('Matrix Elements (e2bl)')
+#ax_ME.set_xticks(rotation=90)
+ax_ME.set_ylabel('Matrix Elements (e2bl)')
+ax_ME.set_xticklabels(ax_ME.get_xticklabels(), rotation=40, ha="right")
 # plot title
-plt.title('GOSIA: Given Matrix Elements (CALCULATED VS. EXPERIMENTAL)')
+ax_ME.set_title('GOSIA: Given Matrix Elements (CALCULATED VS. EXPERIMENTAL)')
 # showing legend
-plt.legend()
+ax_ME.legend()
+
+fig.tight_layout()
+fig_ME.tight_layout()
+
 plt.show()
 
 #--------[ Section: Plotting Diagrams/Graphs ]--------------------------||
+
+
