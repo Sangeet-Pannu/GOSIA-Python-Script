@@ -1,7 +1,9 @@
 Created by Sangeet-Pal Pannu
-
 # GOSIA VISUALIZATION CODE
 
+## Version 1.0 (GOSIAOUTEX.py & run_GOSIA2RAD.sh) 
+
+**These codes are functional but outdated.
 
 The codes are implemented to help user's visualize the .out file when running minimization of GOSIA with experimental information such as Yields, Branching Ratios, Lifetimes, Mixing ratios, and Known Matrix Elements.
 
@@ -52,3 +54,9 @@ MATRIX ELEMENTS (KNOWN):
 GLS FILE:
 ![image](https://github.com/user-attachments/assets/35232aa8-9169-4bb1-bc6c-a9e348b82b98)
 
+
+
+
+## Version 2.0 (im_GOSIA.py)
+
+This code functions as a fully functional application for optimized displaying of GOSIA output file.
